@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Info, Plus, ImageIcon } from 'lucide-react';
+import { db, collection, addDoc, onSnapshot } from './firebase';
+import Modal from './Modal';
 
-// Rest of the component remains exactly the same, just changed the import from `Image as ImageIcon` to `ImageIcon`
 const ProductForm = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     visibility: 'Visible',
     category: '',
-    type: 'Physical',
+    type: 'Physical', 
     price: '0',
     originalPrice: '0',
     description: '',
@@ -19,6 +20,8 @@ const ProductForm = () => {
     minOrderQuantity: false,
     sku: ''
   });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -28,19 +31,65 @@ const ProductForm = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
+    
+    // Create a message with the user's input data
+    const message = `
+      Save button is pressed.
+      Name: ${formData.name}
+      Category: ${formData.category}
+      Price: RM${formData.price}
+      Original Price: RM${formData.originalPrice}
+      Description: ${formData.description}
+    `;
+    
+    setModalMessage(message);
+    setIsModalOpen(true);
+
+    try {
+      // Add document to clients collection
+      const docRef = await addDoc(collection(db, "clients"), {
+        name: formData.name,
+        category: formData.category,
+        sku: formData.sku,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      console.log("Product saved with ID: ", docRef.id);
+      alert("Your data is updated");
+      navigate('/');
+    } catch (error) {
+      console.error("Error saving product: ", error);
+    }
   };
 
+  // Effect hook to listen for real-time updates
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "clients"), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          console.log("New client: ", change.doc.data());
+        }
+        if (change.type === "modified") {
+          console.log("Modified client: ", change.doc.data());
+        }
+        if (change.type === "removed") {
+          console.log("Removed client: ", change.doc.data());
+        }
+      });
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
   const handleAddProduct = () => {
-    // Perform any form validation or submission logic here
-    // After successful submission, navigate to the ProductManagementUI
     navigate('/');
   };
 
   const handleBack = () => {
-    navigate(-1); // Navigate back to the previous page
+    navigate(-1);
   };
 
   return (
@@ -277,6 +326,13 @@ const ProductForm = () => {
           </div>
         </form>
       </div>
+
+      {/* Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        message={modalMessage}
+      />
     </div>
   );
 };

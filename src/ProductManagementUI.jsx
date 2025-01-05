@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronLeft, ChevronRight, Filter, Download, Plus, Menu } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Filter, Download, Plus, Menu, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const ProductManagementUI = () => {
@@ -46,41 +46,52 @@ const ProductManagementUI = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar Toggle Button for Small Screens */}
-      <button
-        className="md:hidden absolute top-4 left-4 z-20"
-        onClick={() => setSidebarVisible(!isSidebarVisible)}
-      >
-        <Menu size={24} />
-      </button>
+      {/* Conditionally render the Sidebar Toggle Button for Small Screens */}
+      {!isSidebarVisible && (
+        <button
+          className="md:hidden absolute top-4 left-4 z-20"
+          onClick={() => setSidebarVisible(!isSidebarVisible)}
+        >
+          <Menu size={24} />
+        </button>
+      )}
 
       {/* Left Sidebar */}
       <div
         ref={sidebarRef}
-        className={`fixed inset-y-0 left-0 transform ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out w-64 bg-white border-r border-gray-200 p-4 z-10`}
+        className={`fixed inset-y-0 left-0 transform ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out w-64 bg-white border-r border-gray-200 p-4 z-10 flex flex-col`}
       >
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 rounded-full bg-gray-200"></div>
-            <div className="flex-1">
-              <h3 className="font-medium">Restaurant Name</h3>
-              <p className="text-sm text-gray-500">store.app/id</p>
+        <button
+          className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg"
+          onClick={() => setSidebarVisible(false)}
+        >
+          <X size={20} />
+        </button>
+
+        <div className="mt-12">
+          <div className="mb-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+              <div className="flex-1">
+                <h3 className="font-medium">Restaurant Name</h3>
+                <p className="text-sm text-gray-500">store.app/id</p>
+              </div>
             </div>
           </div>
+          
+          <nav className="space-y-1">
+            {['Dashboard', 'Orders', 'Products', 'Customers', 'Design', 'Settings'].map((item) => (
+              <button
+                key={item}
+                className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
+                  item === 'Products' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </nav>
         </div>
-        
-        <nav className="space-y-1">
-          {['Dashboard', 'Orders', 'Products', 'Customers', 'Design', 'Settings'].map((item) => (
-            <button
-              key={item}
-              className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
-                item === 'Products' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-        </nav>
       </div>
 
       {/* Main Content */}
