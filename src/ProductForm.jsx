@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Info, Plus, ImageIcon } from 'lucide-react';
-import { db, collection, addDoc, onSnapshot } from './firebase';
+import { db, collection, addDoc } from './firebase';
 import Modal from './Modal';
+import { Cloudinary } from 'cloudinary-core';
+import axios from 'axios';
 
 const ProductForm = () => {
   const navigate = useNavigate();
@@ -18,10 +20,15 @@ const ProductForm = () => {
     dailyCapacity: false,
     maxOrderQuantity: false,
     minOrderQuantity: false,
-    sku: ''
+    sku: '',
+    images: []
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [error, setError] = useState('');
+
+  const cloudinary = new Cloudinary({ cloud_name: 'your_cloud_name', secure: true });
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -31,10 +38,51 @@ const ProductForm = () => {
     }));
   };
 
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setSelectedImage(file); // Store the file instead of the URL
+    }
+  };
+
+  const uploadImageToCloudinary = async (image) => {
+    const formData = new FormData();
+    formData.append("file", image);
+    formData.append("upload_preset", "sgk19zsh"); // Replace with your actual upload preset
+
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/drusxooph/image/upload`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || "Failed to upload image");
+      }
+
+      const data = await response.json();
+      return data.secure_url;
+    } catch (err) {
+      console.error("Error uploading image:", err);
+      setError(`Error uploading image: ${err.message}`);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Create a message with the user's input data
+
+    let imageUrl = null;
+    if (selectedImage) {
+      imageUrl = await uploadImageToCloudinary(selectedImage);
+      if (!imageUrl) {
+        alert("Failed to upload image. Please try again.");
+        return;
+      }
+    }
+
     const message = `
       Save button is pressed.
       Name: ${formData.name}
@@ -42,50 +90,37 @@ const ProductForm = () => {
       Price: RM${formData.price}
       Original Price: RM${formData.originalPrice}
       Description: ${formData.description}
+      Images: ${imageUrl ? imageUrl : formData.images.join(', ')}
     `;
     
     setModalMessage(message);
     setIsModalOpen(true);
 
     try {
-      // Add document to clients collection
       const docRef = await addDoc(collection(db, "clients"), {
         name: formData.name,
         category: formData.category,
         sku: formData.sku,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        images: imageUrl ? [imageUrl] : formData.images
       });
       console.log("Product saved with ID: ", docRef.id);
       alert("Your data is updated");
+
+      const phoneNumber = "601112407109";
+      const whatsappMessage = `
+        红烧肉 x 1
+        卤肉饭 x 1
+      `;
+      const apiUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(whatsappMessage)}`;
+      window.open(apiUrl, '_blank');
+
       navigate('/');
     } catch (error) {
       console.error("Error saving product: ", error);
+      alert("Failed to save product. Please try again.");
     }
-  };
-
-  // Effect hook to listen for real-time updates
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "clients"), (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          console.log("New client: ", change.doc.data());
-        }
-        if (change.type === "modified") {
-          console.log("Modified client: ", change.doc.data());
-        }
-        if (change.type === "removed") {
-          console.log("Removed client: ", change.doc.data());
-        }
-      });
-    });
-
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, []);
-
-  const handleAddProduct = () => {
-    navigate('/');
   };
 
   const handleBack = () => {
@@ -222,11 +257,28 @@ const ProductForm = () => {
           <div>
             <label className="block text-sm font-medium mb-1">Images</label>
             <div className="border-2 border-dashed border-gray-200 rounded-lg p-8">
-              <div className="flex flex-col items-center text-gray-500">
-                <ImageIcon size={24} className="mb-2" />
-                <p className="text-sm mb-1">Drag a file here or click to select one</p>
-                <p className="text-xs">File should not exceed 10mb. Recommended ratio is 1:1.</p>
-              </div>
+              {selectedImage ? (
+                <div className="flex flex-col items-center">
+                  <img src={URL.createObjectURL(selectedImage)} alt="Selected" className="w-64 h-64 object-cover rounded-lg mb-4" />
+                  <button
+                    onClick={() => setSelectedImage(null)}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Change Image
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center text-gray-500 cursor-pointer">
+                  <ImageIcon size={24} className="mb-2" />
+                  <p className="text-sm mb-1">Drag a file here or click to select one</p>
+                  <p className="text-xs">File should not exceed 10mb. Recommended ratio is 1:1.</p>
+                  <input
+                    type="file"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
           </div>
 
@@ -332,7 +384,12 @@ const ProductForm = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         message={modalMessage}
-      />
+      >
+        <div>
+          <h1>Sending Order to Shop?</h1>
+          <p>If not redirected, click <a href={`https://api.whatsapp.com/send?phone=601112407109&text=${encodeURIComponent('红烧肉 x 1\n卤肉饭 x 1')}`}>here</a> to confirm your order.</p>
+        </div>
+      </Modal>
     </div>
   );
 };
